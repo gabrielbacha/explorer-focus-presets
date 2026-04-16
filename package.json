@@ -1,0 +1,208 @@
+{
+  "name": "vscode-focus-mode",
+  "displayName": "Focus Mode",
+  "description": "Toggle between named file-visibility presets (ALL / SETUP / CORE / ...) to cut Explorer cognitive overload.",
+  "version": "0.8.0",
+  "publisher": "gabriel",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "main": "./out/extension.js",
+  "activationEvents": ["onStartupFinished"],
+  "contributes": {
+    "commands": [
+      { "command": "focusMode.cycle", "title": "Focus Mode: Cycle Preset" },
+      { "command": "focusMode.switch", "title": "Focus Mode: Switch Preset..." },
+      { "command": "focusMode.editPresets", "title": "Focus Mode: Edit Presets" },
+      { "command": "focusMode.resetPresets", "title": "Focus Mode: Reset Presets to Defaults" },
+      { "command": "focusMode.initRcFile", "title": "Focus Mode: Create .focusmoderc.json" },
+      { "command": "focusMode.togglePath", "title": "Focus Mode: Toggle in presets..." }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "focusMode.togglePath",
+          "group": "2_workspace@99"
+        }
+      ],
+      "commandPalette": [
+        { "command": "focusMode.togglePath", "when": "false" }
+      ]
+    },
+    "configuration": {
+      "title": "Focus Mode",
+      "properties": {
+        "focusMode.presets": {
+          "type": "object",
+          "description": "Named presets mapping preset name → files.exclude glob map.",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": { "type": "boolean" }
+          },
+          "default": {
+            "SETUP": {
+              "**/node_modules": true,
+              "**/.pnpm-store": true,
+              "**/.yarn": true,
+              "**/.pnp.*": true,
+              "**/yarn.lock": true,
+              "**/package-lock.json": true,
+              "**/pnpm-lock.yaml": true,
+              "**/bun.lockb": true,
+              "**/bun.lock": true,
+              "**/dist": true,
+              "**/build": true,
+              "**/out": true,
+              "**/coverage": true,
+              "**/.nyc_output": true,
+              "**/.turbo": true,
+              "**/turbo": true,
+              "**/.cache": true,
+              "**/.parcel-cache": true,
+              "**/.vite": true,
+              "**/.next": true,
+              "**/.nuxt": true,
+              "**/.output": true,
+              "**/.svelte-kit": true,
+              "**/.astro": true,
+              "**/.angular": true,
+              "**/.expo": true,
+              "**/.vercel": true,
+              "**/.netlify": true,
+              "**/.wrangler": true,
+              "**/.sst": true,
+              "**/storybook-static": true,
+              "**/test-results": true,
+              "**/playwright-report": true,
+              "**/.eslintcache": true,
+              "**/.stylelintcache": true,
+              "**/*-env.d.ts": true,
+              "**/.DS_Store": true,
+              "**/Thumbs.db": true,
+              "**/*-debug.log*": true,
+              "**/.history": true,
+              "**/.idea": true,
+              "**/.zed": true,
+              "**/.fleet": true,
+              "**/.editorconfig": true,
+              "**/eslint.config.*": true,
+              "**/oxlint.config.ts": true,
+              "**/oxfmt.config.ts": true,
+              "**/lefthook.yml": true,
+              "**/.npmrc": true,
+              "**/.nvmrc": true,
+              "**/.yarnrc": true,
+              "**/.yarnrc.yml": true,
+              "**/.prettierignore": true,
+              "**/.stylelintignore": true,
+              ".cursor": true,
+              ".claude": true,
+              ".obsidian": true,
+              ".conductor": true,
+              ".airignore": true,
+              ".cursorignore": true,
+              ".syncpackrc": true,
+              ".windsurfrules": true,
+              ".focusmoderc.json": true,
+              ".postcss.config.mjs": true
+            },
+            "CORE": {
+              "**/package.json": true,
+              "**/pnpm-workspace.yaml": true,
+              "**/turbo.json": true,
+              "**/nx.json": true,
+              "**/rush.json": true,
+              "**/lerna.json": true,
+              "**/.changeset": true,
+              "**/bunfig.toml": true,
+              "**/tsconfig.json": true,
+              "**/tsconfig.*.json": true,
+              "**/.prettierrc*": true,
+              "**/biome.json": true,
+              "**/biome.jsonc": true,
+              "**/.stylelintrc*": true,
+              "**/commitlint.config.*": true,
+              "**/release.config.*": true,
+              "**/renovate.json": true,
+              "**/dependabot.yml": true,
+              "**/tailwind.config.*": true,
+              "**/postcss.config.*": true,
+              "**/vite.config.*": true,
+              "**/vitest.config.*": true,
+              "**/rollup.config.*": true,
+              "**/webpack.config.*": true,
+              "**/babel.config.*": true,
+              "**/tsup.config.*": true,
+              "**/jest.config.*": true,
+              "**/cypress.config.*": true,
+              "**/playwright.config.*": true,
+              "**/next.config.*": true,
+              "**/metro.config.*": true,
+              "**/app.config.ts": true,
+              "**/eas.json": true,
+              "**/env.config.ts": true,
+              "**/instrumentation-client.ts": true,
+              "**/instrumentation.ts": true,
+              "**/wrangler.toml": true,
+              "**/drizzle.config.*": true,
+              "**/prisma": true,
+              "**/Dockerfile": true,
+              "**/docker-compose.yml": true,
+              "**/docker-compose.yaml": true,
+              "**/.dockerignore": true,
+              "**/Makefile": true,
+              "**/justfile": true,
+              "**/tests": true,
+              "**/.env.local": true,
+              "**/.env.*.local": true,
+              "**/CLAUDE.md": true,
+              "**/agents.md": true,
+              "**/README.md": true,
+              "**/LICENSE": true,
+              "**/LICENSE.md": true,
+              "**/CHANGELOG.md": true,
+              "**/CONTRIBUTING.md": true,
+              "**/CODE_OF_CONDUCT.md": true,
+              "**/SECURITY.md": true,
+              ".agents": true,
+              ".github": true,
+              ".vscode": true,
+              ".gitignore": true,
+			  ".impeccable.md": true
+            }
+          }
+        },
+        "focusMode.extends": {
+          "type": "object",
+          "description": "Preset inheritance: child → parent. Child inherits all parent globs; child keys override.",
+          "additionalProperties": { "type": "string" },
+          "default": { "CORE": "SETUP" }
+        },
+        "focusMode.order": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["ALL", "SETUP", "CORE"],
+          "description": "Order in which presets are cycled."
+        },
+        "focusMode.default": {
+          "type": "string",
+          "default": "ALL",
+          "description": "Preset applied on first activation in a workspace."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -w -p .",
+    "vscode:prepublish": "npm run compile",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.24.0",
+    "typescript": "^5.4.0"
+  }
+}
