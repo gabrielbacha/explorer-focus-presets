@@ -3,11 +3,25 @@
   "displayName": "Focus Mode",
   "description": "Toggle between named file-visibility presets (ALL / SETUP / CORE / ...) to cut Explorer cognitive overload.",
   "version": "0.8.0",
-  "publisher": "gabriel",
+  "publisher": "gabrielbacha",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gabrielbacha/vscode-focus-mode.git"
+  },
+  "keywords": [
+    "files.exclude",
+    "explorer",
+    "focus",
+    "presets",
+    "hide files",
+    "monorepo"
+  ],
+  "galleryBanner": { "color": "#1e1e1e", "theme": "dark" },
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other"],
+  "categories": ["Other", "Visualization"],
   "main": "./out/extension.js",
   "activationEvents": ["onStartupFinished"],
   "contributes": {
@@ -197,12 +211,14 @@
     "compile": "tsc -p .",
     "watch": "tsc -w -p .",
     "vscode:prepublish": "npm run compile",
-    "package": "vsce package"
+    "package": "vsce package",
+    "publish:ovsx": "ovsx publish"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^2.24.0",
+    "ovsx": "^0.9.0",
     "typescript": "^5.4.0"
   }
 }

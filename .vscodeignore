@@ -1,0 +1,10 @@
+.vscode/**
+.gitignore
+.env
+.env.*
+tsconfig.json
+src/**
+presets.csv
+*.vsix
+node_modules/**
+**/*.map

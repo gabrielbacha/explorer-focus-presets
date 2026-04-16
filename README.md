@@ -90,3 +90,22 @@ Package a `.vsix`:
 ```bash
 npm run package
 ```
+
+## Publish to Open VSX
+
+> TODO: add a `icon.png` (128×128) and reference it with `"icon": "icon.png"` in `package.json` before publishing for a non-empty listing page.
+
+1. Sign in at https://open-vsx.org with GitHub.
+2. User Settings → **Access Tokens** → generate a token with `publish` scope.
+3. Claim the `gabrielbacha` namespace (self-serve if the name is free, or request via the Eclipse issue tracker).
+4. Store the token locally (already done for this repo via `.env.local` → `OVSX_PAT=…`; the file is gitignored).
+5. Publish:
+   ```bash
+   export $(grep -v '^#' .env.local | xargs)   # load OVSX_PAT into shell
+   npm run compile
+   npx vsce package
+   npx ovsx publish vscode-focus-mode-<version>.vsix -p "$OVSX_PAT"
+   ```
+6. Listing appears at `https://open-vsx.org/extension/gabrielbacha/vscode-focus-mode` within ~1 minute.
+
+To publish updates: bump `version` in `package.json`, recompile, rerun `vsce package` + `ovsx publish`.
