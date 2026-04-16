@@ -2,7 +2,7 @@
   "name": "vscode-focus-mode",
   "displayName": "Focus Mode",
   "description": "Toggle between named file-visibility presets (ALL / SETUP / CORE / ...) to cut Explorer cognitive overload.",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "publisher": "gabrielbacha",
   "license": "MIT",
   "repository": {
@@ -30,8 +30,11 @@
       { "command": "focusMode.switch", "title": "Focus Mode: Switch Preset..." },
       { "command": "focusMode.editPresets", "title": "Focus Mode: Edit Presets" },
       { "command": "focusMode.resetPresets", "title": "Focus Mode: Reset Presets to Defaults" },
+      { "command": "focusMode.hardReset", "title": "Focus Mode: Hard Reset (nuke files.exclude)" },
       { "command": "focusMode.initRcFile", "title": "Focus Mode: Create .focusmoderc.json" },
-      { "command": "focusMode.togglePath", "title": "Focus Mode: Toggle in presets..." }
+      { "command": "focusMode.togglePath", "title": "Focus Mode: Toggle in presets..." },
+      { "command": "focusMode.showState", "title": "Focus Mode: Show Debug State" },
+      { "command": "focusMode.openSettingsJson", "title": "Focus Mode: Open .vscode/settings.json" }
     ],
     "menus": {
       "explorer/context": [
@@ -103,6 +106,7 @@
               "**/eslint.config.*": true,
               "**/oxlint.config.ts": true,
               "**/oxfmt.config.ts": true,
+              "**/vitest.config.*": true,
               "**/lefthook.yml": true,
               "**/.npmrc": true,
               "**/.nvmrc": true,
@@ -114,7 +118,7 @@
               ".claude": true,
               ".obsidian": true,
               ".conductor": true,
-              ".airignore": true,
+              ".aiignore": true,
               ".cursorignore": true,
               ".syncpackrc": true,
               ".windsurfrules": true,
@@ -143,7 +147,6 @@
               "**/tailwind.config.*": true,
               "**/postcss.config.*": true,
               "**/vite.config.*": true,
-              "**/vitest.config.*": true,
               "**/rollup.config.*": true,
               "**/webpack.config.*": true,
               "**/babel.config.*": true,

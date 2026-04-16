@@ -58,3 +58,11 @@ export async function clearState(ctx: vscode.ExtensionContext): Promise<void> {
   await ctx.workspaceState.update(ACTIVE_KEY, undefined);
   await ctx.workspaceState.update(MANAGED_KEY, undefined);
 }
+
+export async function hardClearState(ctx: vscode.ExtensionContext): Promise<void> {
+  const filesCfg = vscode.workspace.getConfiguration("files");
+  await filesCfg.update("exclude", undefined, vscode.ConfigurationTarget.Workspace);
+  await ctx.workspaceState.update(BASELINE_KEY, undefined);
+  await ctx.workspaceState.update(ACTIVE_KEY, undefined);
+  await ctx.workspaceState.update(MANAGED_KEY, undefined);
+}

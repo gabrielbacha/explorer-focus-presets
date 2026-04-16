@@ -1,6 +1,15 @@
 import * as vscode from "vscode";
 import { readPresets, readOrder, readDefault, readExtends, resolvePresets, PresetMap } from "./presets";
-import { applyPreset, getActive, ensureBaseline, clearState } from "./apply";
+import {
+  applyPreset,
+  getActive,
+  ensureBaseline,
+  clearState,
+  hardClearState,
+  BASELINE_KEY,
+  ACTIVE_KEY,
+  MANAGED_KEY,
+} from "./apply";
 import { togglePath } from "./toggle";
 import { RC_FILENAME, RcFile, deleteRcFile, hasRcFile, readRcFile, writeRcFile } from "./rcfile";
 
@@ -142,6 +151,81 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<void> {
         await vscode.window.showTextDocument(uri);
       }
       vscode.window.showInformationMessage(`Focus Mode: created ${RC_FILENAME}.`);
+    }),
+    vscode.commands.registerCommand("focusMode.hardReset", async () => {
+      if (!hasWorkspace()) {
+        vscode.window.showWarningMessage("Focus Mode: open a folder first.");
+        return;
+      }
+      const pick = await vscode.window.showWarningMessage(
+        "Focus Mode Hard Reset: this DELETES all of `files.exclude` at workspace scope, removes `focusMode.*` settings, removes the rc file, and clears internal state. Use this if the Explorer is stuck hiding everything.",
+        { modal: true },
+        "Hard Reset",
+      );
+      if (pick !== "Hard Reset") return;
+      const cfg = vscode.workspace.getConfiguration("focusMode");
+      await cfg.update("presets", undefined, vscode.ConfigurationTarget.Workspace);
+      await cfg.update("order", undefined, vscode.ConfigurationTarget.Workspace);
+      await cfg.update("default", undefined, vscode.ConfigurationTarget.Workspace);
+      await cfg.update("extends", undefined, vscode.ConfigurationTarget.Workspace);
+      await deleteRcFile();
+      await hardClearState(ctx);
+      await ensureBaseline(ctx);
+      const { presets, defaultName } = await loadState();
+      if (presets[defaultName]) await applyPreset(ctx, defaultName, presets);
+      await refresh();
+      vscode.window.showInformationMessage("Focus Mode: hard reset done.");
+    }),
+    vscode.commands.registerCommand("focusMode.showState", async () => {
+      const { rc, presets, order, defaultName } = await loadState();
+      const active = getActive(ctx);
+      const baseline = ctx.workspaceState.get<Record<string, boolean>>(BASELINE_KEY);
+      const managed = ctx.workspaceState.get<string[]>(MANAGED_KEY);
+      const filesCfg = vscode.workspace.getConfiguration("files");
+      const excludeInsp = filesCfg.inspect<Record<string, boolean>>("exclude");
+      const info = {
+        workspaceFolders: vscode.workspace.workspaceFolders?.map((f) => f.uri.fsPath),
+        rcFilePresent: rc !== undefined,
+        rcFileContents: rc,
+        active,
+        defaultName,
+        order,
+        presetNames: Object.keys(presets),
+        presetSizes: Object.fromEntries(
+          Object.entries(presets).map(([k, v]) => [k, Object.keys(v).length]),
+        ),
+        workspaceState: {
+          [BASELINE_KEY]: baseline ? Object.keys(baseline).length : null,
+          [ACTIVE_KEY]: active ?? null,
+          [MANAGED_KEY]: managed ? managed.length : null,
+        },
+        filesExclude: {
+          defaultKeys: Object.keys(excludeInsp?.defaultValue ?? {}).length,
+          globalKeys: Object.keys(excludeInsp?.globalValue ?? {}).length,
+          workspaceKeys: Object.keys(excludeInsp?.workspaceValue ?? {}).length,
+          workspaceFolderKeys: Object.keys(excludeInsp?.workspaceFolderValue ?? {}).length,
+        },
+      };
+      const channel = vscode.window.createOutputChannel("Focus Mode");
+      channel.appendLine("=== focusMode.showState ===");
+      channel.appendLine(JSON.stringify(info, null, 2));
+      channel.show(true);
+    }),
+    vscode.commands.registerCommand("focusMode.openSettingsJson", async () => {
+      const folder = vscode.workspace.workspaceFolders?.[0];
+      if (!folder) {
+        vscode.window.showWarningMessage("Focus Mode: open a folder first.");
+        return;
+      }
+      const uri = vscode.Uri.joinPath(folder.uri, ".vscode", "settings.json");
+      try {
+        const doc = await vscode.workspace.openTextDocument(uri);
+        await vscode.window.showTextDocument(doc);
+      } catch {
+        await vscode.commands.executeCommand(
+          "workbench.action.openWorkspaceSettingsFile",
+        );
+      }
     }),
     vscode.commands.registerCommand("focusMode.togglePath", async (uri?: vscode.Uri) => {
       if (!hasWorkspace()) {
