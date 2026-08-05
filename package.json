@@ -1,13 +1,14 @@
 {
-  "name": "vscode-focus-mode",
-  "displayName": "Focus Mode",
+  "name": "explorer-focus-presets",
+  "displayName": "Explorer Focus Presets",
   "description": "Toggle between named file-visibility presets (ALL / SETUP / CORE / ...) to cut Explorer cognitive overload.",
   "version": "0.9.0",
   "publisher": "gabrielbacha",
+  "icon": "icon.png",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/gabrielbacha/vscode-focus-mode.git"
+    "url": "https://github.com/gabrielbacha/explorer-focus-presets.git"
   },
   "keywords": [
     "files.exclude",
@@ -17,24 +18,59 @@
     "hide files",
     "monorepo"
   ],
-  "galleryBanner": { "color": "#1e1e1e", "theme": "dark" },
+  "galleryBanner": {
+    "color": "#1e1e1e",
+    "theme": "dark"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other", "Visualization"],
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
   "main": "./out/extension.js",
-  "activationEvents": ["onStartupFinished"],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "contributes": {
     "commands": [
-      { "command": "focusMode.cycle", "title": "Focus Mode: Cycle Preset" },
-      { "command": "focusMode.switch", "title": "Focus Mode: Switch Preset..." },
-      { "command": "focusMode.editPresets", "title": "Focus Mode: Edit Presets" },
-      { "command": "focusMode.resetPresets", "title": "Focus Mode: Reset Presets to Defaults" },
-      { "command": "focusMode.hardReset", "title": "Focus Mode: Hard Reset (nuke files.exclude)" },
-      { "command": "focusMode.initRcFile", "title": "Focus Mode: Create .focusmoderc.json" },
-      { "command": "focusMode.togglePath", "title": "Focus Mode: Toggle in presets..." },
-      { "command": "focusMode.showState", "title": "Focus Mode: Show Debug State" },
-      { "command": "focusMode.openSettingsJson", "title": "Focus Mode: Open .vscode/settings.json" }
+      {
+        "command": "focusMode.cycle",
+        "title": "Focus Mode: Cycle Preset"
+      },
+      {
+        "command": "focusMode.switch",
+        "title": "Focus Mode: Switch Preset..."
+      },
+      {
+        "command": "focusMode.editPresets",
+        "title": "Focus Mode: Edit Presets"
+      },
+      {
+        "command": "focusMode.resetPresets",
+        "title": "Focus Mode: Reset Presets to Defaults"
+      },
+      {
+        "command": "focusMode.hardReset",
+        "title": "Focus Mode: Hard Reset (nuke files.exclude)"
+      },
+      {
+        "command": "focusMode.initRcFile",
+        "title": "Focus Mode: Create .focusmoderc.json"
+      },
+      {
+        "command": "focusMode.togglePath",
+        "title": "Focus Mode: Toggle in presets..."
+      },
+      {
+        "command": "focusMode.showState",
+        "title": "Focus Mode: Show Debug State"
+      },
+      {
+        "command": "focusMode.openSettingsJson",
+        "title": "Focus Mode: Open .vscode/settings.json"
+      }
     ],
     "menus": {
       "explorer/context": [
@@ -44,7 +80,10 @@
         }
       ],
       "commandPalette": [
-        { "command": "focusMode.togglePath", "when": "false" }
+        {
+          "command": "focusMode.togglePath",
+          "when": "false"
+        }
       ]
     },
     "configuration": {
@@ -55,7 +94,9 @@
           "description": "Named presets mapping preset name → files.exclude glob map.",
           "additionalProperties": {
             "type": "object",
-            "additionalProperties": { "type": "boolean" }
+            "additionalProperties": {
+              "type": "boolean"
+            }
           },
           "default": {
             "SETUP": {
@@ -116,6 +157,8 @@
               "**/.stylelintignore": true,
               ".cursor": true,
               ".claude": true,
+              ".gemini": true,
+              ".junie": true,
               ".obsidian": true,
               ".conductor": true,
               ".aiignore": true,
@@ -186,20 +229,30 @@
               ".github": true,
               ".vscode": true,
               ".gitignore": true,
-			  ".impeccable.md": true
+              ".impeccable.md": true
             }
           }
         },
         "focusMode.extends": {
           "type": "object",
           "description": "Preset inheritance: child → parent. Child inherits all parent globs; child keys override.",
-          "additionalProperties": { "type": "string" },
-          "default": { "CORE": "SETUP" }
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {
+            "CORE": "SETUP"
+          }
         },
         "focusMode.order": {
           "type": "array",
-          "items": { "type": "string" },
-          "default": ["ALL", "SETUP", "CORE"],
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "ALL",
+            "SETUP",
+            "CORE"
+          ],
           "description": "Order in which presets are cycled."
         },
         "focusMode.default": {
