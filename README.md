@@ -17,7 +17,7 @@ Click the status bar item `👁 CORE` to cycle to the next preset. Each preset i
   - `Focus Mode: Switch Preset...` (quick pick)
   - `Focus Mode: Edit Presets` (jumps into settings.json)
   - `Focus Mode: Create .focusmoderc.json` (scaffolds the rc file from extension defaults)
-  - `Focus Mode: Reset Presets to Defaults` (wipes workspace overrides + restores `files.exclude`)
+  - `Focus Mode: Reset Presets to Defaults` (removes this folder’s preset definitions and restores only unchanged Focus Mode overrides)
 
 Bind any of these to keys via `keybindings.json`.
 
@@ -79,7 +79,9 @@ A bare preset map (no `presets`/`order`/`default` wrapper) is also accepted — 
 
 Workspace-level presets are merged **on top of** global user-settings presets (workspace wins per-key), so you can keep a shared global preset and still override per-project.
 
-Your pre-existing workspace `files.exclude` entries are preserved — the extension snapshots them on first activation and re-applies them under every preset.
+Focus Mode records each exclusion that it writes. A preset switch or reset restores only values that still match that write. Manual edits and later unrelated exclusions remain. Editing a parent preset also updates its active child. Commands and watcher updates run in order for each folder.
+
+In a multi-root workspace, each local folder has its own rc file, settings and saved state. A file command uses the file’s folder; other commands use the active editor or ask you to choose a folder. Remote and other non-file URI schemes are refused with a message. Invalid rc files are read-only until repaired; the last valid display and applied exclusions remain. Writes preserve unrelated rc fields and use a checked same-directory replacement.
 
 ## Develop
 

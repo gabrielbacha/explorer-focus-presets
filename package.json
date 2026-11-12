@@ -91,7 +91,7 @@
       "properties": {
         "focusMode.presets": {
           "type": "object",
-          "description": "Named presets mapping preset name → files.exclude glob map.",
+          "description": "Named presets mapping preset name \u2192 files.exclude glob map.",
           "additionalProperties": {
             "type": "object",
             "additionalProperties": {
@@ -231,17 +231,19 @@
               ".gitignore": true,
               ".impeccable.md": true
             }
-          }
+          },
+          "scope": "resource"
         },
         "focusMode.extends": {
           "type": "object",
-          "description": "Preset inheritance: child → parent. Child inherits all parent globs; child keys override.",
+          "description": "Preset inheritance: child \u2192 parent. Child inherits all parent globs; child keys override.",
           "additionalProperties": {
             "type": "string"
           },
           "default": {
             "CORE": "SETUP"
-          }
+          },
+          "scope": "resource"
         },
         "focusMode.order": {
           "type": "array",
@@ -253,12 +255,14 @@
             "SETUP",
             "CORE"
           ],
-          "description": "Order in which presets are cycled."
+          "description": "Order in which presets are cycled.",
+          "scope": "resource"
         },
         "focusMode.default": {
           "type": "string",
           "default": "ALL",
-          "description": "Preset applied on first activation in a workspace."
+          "description": "Preset applied on first activation in a workspace.",
+          "scope": "resource"
         }
       }
     }
@@ -268,7 +272,8 @@
     "watch": "tsc -w -p .",
     "vscode:prepublish": "npm run compile",
     "package": "vsce package",
-    "publish:ovsx": "ovsx publish"
+    "publish:ovsx": "ovsx publish",
+    "test": "npm run compile && node --test tests/*.test.cjs"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

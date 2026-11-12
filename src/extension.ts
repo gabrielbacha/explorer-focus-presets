@@ -1,290 +1,54 @@
 import * as vscode from "vscode";
-import { readPresets, readOrder, readDefault, readExtends, resolvePresets, PresetMap } from "./presets";
-import {
-  applyPreset,
-  getActive,
-  ensureBaseline,
-  clearState,
-  hardClearState,
-  BASELINE_KEY,
-  ACTIVE_KEY,
-  MANAGED_KEY,
-} from "./apply";
+import { applyPresetNow, clearStateNow, getActive, getFolderState, BASELINE_KEY, MANAGED_KEY, refreshPreset } from "./apply";
 import { togglePath } from "./toggle";
-import { RC_FILENAME, RcFile, deleteRcFile, hasRcFile, readRcFile, writeRcFile } from "./rcfile";
-
-let statusBar: vscode.StatusBarItem;
-
-interface State {
-  rc: RcFile | undefined;
-  presets: PresetMap;
-  order: string[];
-  defaultName: string;
+import { loadState } from "./state";
+import { RC_FILENAME, readRcSnapshot, sameRc, writeRcFile, deleteRcFile, RcFile } from "./rcfile";
+import { chooseFolder, shownFolder, localFolder, folderQueue, configurationTarget } from "./workspace";
+let statusBar:vscode.StatusBarItem;
+export async function activate(ctx:vscode.ExtensionContext):Promise<void>{
+ statusBar=vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left,100);statusBar.command="focusMode.cycle";ctx.subscriptions.push(statusBar);
+ const report=(error:unknown)=>vscode.window.showErrorMessage(`Focus Mode: ${error instanceof Error?error.message:"The change could not be saved."}`);
+ const refresh=async()=>{
+  const folder=shownFolder();if(!folder){statusBar.text="$(eye) Focus Mode";statusBar.tooltip="Choose a local workspace folder to change its presets.";statusBar.show();return;}
+  try{localFolder(folder);const state=await loadState(folder,true);const active=getActive(ctx,folder)??state.defaultName;statusBar.text=`$(${state.invalid?"warning":"eye"}) ${active}`;statusBar.tooltip=`${folder.name}: ${state.invalid?"Fix the preset file. Last applied settings were kept.":state.order.join(" → ")}`;statusBar.show();}catch(error){statusBar.text="$(warning) Focus Mode";statusBar.tooltip=error instanceof Error?error.message:"Presets are unavailable.";statusBar.show();}
+ };
+ const command=(id:string,run:(folder:vscode.WorkspaceFolder)=>Promise<void>)=>vscode.commands.registerCommand(id,async()=>{try{const folder=await chooseFolder();await run(folder);await refresh();}catch(error){await report(error);}});
+ const reset=async(folder:vscode.WorkspaceFolder,hard:boolean)=>{
+  const snapshot=await readRcSnapshot(folder);if(snapshot.kind==="invalid")throw new Error(snapshot.reason);
+  const answer=await vscode.window.showWarningMessage(hard?`Remove all exclude settings owned by ${folder.name}, its preset overrides and its ${RC_FILENAME}?`:`Reset presets for ${folder.name}? Unrelated exclude settings will be kept.`,{modal:true},hard?"Hard Reset":"Reset");
+  if(answer!==(hard?"Hard Reset":"Reset"))return;
+  await folderQueue(folder,async()=>{
+   if(!sameRc(snapshot,await readRcSnapshot(folder)))throw new Error("The preset file changed while the confirmation was open. Review it and try again.");
+   const cfg=vscode.workspace.getConfiguration("focusMode",folder.uri);for(const key of ["presets","order","default","extends"])await cfg.update(key,undefined,configurationTarget());
+   await deleteRcFile(folder,snapshot);await clearStateNow(ctx,folder,hard);const state=await loadState(folder);await applyPresetNow(ctx,state.defaultName,state.presets,folder);
+  });
+ };
+ ctx.subscriptions.push(
+  command("focusMode.cycle",folder=>folderQueue(folder,async()=>{const state=await loadState(folder);if(!state.order.length)throw new Error("No presets are configured.");const active=getActive(ctx,folder)??state.defaultName;const next=state.order[(state.order.indexOf(active)+1)%state.order.length]!;await applyPresetNow(ctx,next,state.presets,folder);})),
+  command("focusMode.switch",async folder=>{const state=await loadState(folder);const active=getActive(ctx,folder);const pick=await vscode.window.showQuickPick(state.order.map(name=>({label:name,description:name===active?"Active":undefined})),{placeHolder:`Select a preset for ${folder.name}`});if(pick)await folderQueue(folder,async()=>{const latest=await loadState(folder);await applyPresetNow(ctx,pick.label,latest.presets,folder);});}),
+  command("focusMode.editPresets",async folder=>{const snapshot=await readRcSnapshot(folder);if(snapshot.kind!=="missing")await vscode.window.showTextDocument(vscode.Uri.joinPath(folder.uri,RC_FILENAME));else await vscode.commands.executeCommand("workbench.action.openFolderSettings",{revealSetting:{key:"focusMode.presets"}});}),
+  command("focusMode.resetPresets",folder=>reset(folder,false)),
+  command("focusMode.hardReset",folder=>reset(folder,true)),
+  command("focusMode.initRcFile",async folder=>{
+   const snapshot=await readRcSnapshot(folder);if(snapshot.kind==="invalid")throw new Error(snapshot.reason);
+   if(snapshot.kind==="valid"&&(await vscode.window.showWarningMessage(`Replace ${folder.name}/${RC_FILENAME} with defaults?`,{modal:true},"Overwrite"))!=="Overwrite")return;
+   await folderQueue(folder,async()=>{if(!sameRc(snapshot,await readRcSnapshot(folder)))throw new Error("The preset file changed. Review it and try again.");const cfg=vscode.workspace.getConfiguration("focusMode",folder.uri);const rc:RcFile={presets:cfg.inspect<Record<string,Record<string,boolean>>>("presets")?.defaultValue,order:cfg.inspect<string[]>("order")?.defaultValue,default:cfg.inspect<string>("default")?.defaultValue,extends:cfg.inspect<Record<string,string>>("extends")?.defaultValue};await writeRcFile(rc,folder,snapshot);});
+   await vscode.window.showTextDocument(vscode.Uri.joinPath(folder.uri,RC_FILENAME));
+  }),
+  command("focusMode.showState",async folder=>{const state=await loadState(folder,true);const channel=vscode.window.createOutputChannel("Focus Mode");ctx.subscriptions.push(channel);channel.appendLine(JSON.stringify({folder:folder.name,rcValid:!state.invalid,active:getActive(ctx,folder),presets:Object.keys(state.presets),state:getFolderState(ctx,folder)},null,2));channel.show(true);}),
+  command("focusMode.openSettingsJson",async folder=>{await vscode.window.showTextDocument(vscode.Uri.joinPath(folder.uri,".vscode","settings.json"));}),
+  vscode.commands.registerCommand("focusMode.togglePath",async(uri?:vscode.Uri)=>{try{if(!uri)throw new Error("Right-click a file in the Explorer to change its visibility.");await togglePath(ctx,uri);await refresh();}catch(error){await report(error);}}),
+  vscode.window.onDidChangeActiveTextEditor(()=>{void refresh();}),
+  vscode.workspace.onDidChangeConfiguration(event=>{for(const folder of vscode.workspace.workspaceFolders??[]){if(["presets","order","default","extends"].some(key=>event.affectsConfiguration(`focusMode.${key}`,folder.uri)))void refreshPreset(ctx,folder).then(refresh).catch(report);}}),
+ );
+ const watchers=new Map<string,vscode.FileSystemWatcher>();
+ const setupFolder=async(folder:vscode.WorkspaceFolder)=>{
+  try{localFolder(folder);const key=folder.uri.toString();if(!watchers.has(key)){const watcher=vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(folder,RC_FILENAME));const changed=()=>{void refreshPreset(ctx,folder).then(refresh).catch(report);};watcher.onDidChange(changed);watcher.onDidCreate(changed);watcher.onDidDelete(changed);watchers.set(key,watcher);ctx.subscriptions.push(watcher);}await refreshPreset(ctx,folder);}catch(error){await report(error);}
+ };
+ ctx.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(event=>{for(const folder of event.removed){watchers.get(folder.uri.toString())?.dispose();watchers.delete(folder.uri.toString());}for(const folder of event.added)void setupFolder(folder);void refresh();}));
+ if(ctx.workspaceState.get(BASELINE_KEY)!==undefined||ctx.workspaceState.get(MANAGED_KEY)!==undefined)
+  await vscode.window.showInformationMessage("Existing shared exclude settings were kept because the old version did not record their last written values. Review workspace excludes if ALL still hides files.");
+ for(const folder of vscode.workspace.workspaceFolders??[])await setupFolder(folder);
+ await refresh();
 }
-
-async function loadState(): Promise<State> {
-  const rc = await readRcFile();
-  const raw = readPresets(rc);
-  const ext = readExtends(rc);
-  const presets = resolvePresets(raw, ext);
-  const order = readOrder(presets, rc);
-  const defaultName = readDefault(presets, order, rc);
-  return { rc, presets, order, defaultName };
-}
-
-export async function activate(ctx: vscode.ExtensionContext): Promise<void> {
-  const hasWorkspace = () => (vscode.workspace.workspaceFolders?.length ?? 0) > 0;
-  if (hasWorkspace()) {
-    await ensureBaseline(ctx);
-  }
-
-  statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-  statusBar.command = "focusMode.cycle";
-  ctx.subscriptions.push(statusBar);
-
-  const refresh = async () => {
-    const { order, defaultName } = await loadState();
-    const active = getActive(ctx) ?? defaultName;
-    statusBar.text = `$(eye) ${active}`;
-    statusBar.tooltip = buildTooltip(order, active);
-    statusBar.show();
-  };
-
-  ctx.subscriptions.push(
-    vscode.commands.registerCommand("focusMode.cycle", async () => {
-      if (!hasWorkspace()) {
-        vscode.window.showWarningMessage("Focus Mode: open a folder first.");
-        return;
-      }
-      const { presets, order, defaultName } = await loadState();
-      if (order.length === 0) {
-        vscode.window.showWarningMessage("Focus Mode: no presets configured.");
-        return;
-      }
-      const active = getActive(ctx) ?? defaultName;
-      const idx = order.indexOf(active);
-      const next = order[(idx + 1) % order.length];
-      await applyPreset(ctx, next, presets);
-      await refresh();
-    }),
-    vscode.commands.registerCommand("focusMode.switch", async () => {
-      if (!hasWorkspace()) {
-        vscode.window.showWarningMessage("Focus Mode: open a folder first.");
-        return;
-      }
-      const { presets, order } = await loadState();
-      const active = getActive(ctx);
-      const pick = await vscode.window.showQuickPick(
-        order.map((name) => ({
-          label: name,
-          description: name === active ? "(active)" : undefined,
-        })),
-        { placeHolder: "Select a focus preset" },
-      );
-      if (!pick) return;
-      await applyPreset(ctx, pick.label, presets);
-      await refresh();
-    }),
-    vscode.commands.registerCommand("focusMode.editPresets", async () => {
-      const rc = await readRcFile();
-      if (rc !== undefined) {
-        const folder = vscode.workspace.workspaceFolders?.[0];
-        if (folder) {
-          const uri = vscode.Uri.joinPath(folder.uri, RC_FILENAME);
-          await vscode.window.showTextDocument(uri);
-          return;
-        }
-      }
-      await vscode.commands.executeCommand(
-        "workbench.action.openSettingsJson",
-        { revealSetting: { key: "focusMode.presets" } },
-      );
-    }),
-    vscode.commands.registerCommand("focusMode.resetPresets", async () => {
-      if (!hasWorkspace()) {
-        vscode.window.showWarningMessage("Focus Mode: open a folder first.");
-        return;
-      }
-      const pick = await vscode.window.showWarningMessage(
-        `Reset Focus Mode presets? This removes workspace customizations (including ${RC_FILENAME} if present) and restores files.exclude to its pre-extension state.`,
-        { modal: true },
-        "Reset",
-      );
-      if (pick !== "Reset") return;
-      const cfg = vscode.workspace.getConfiguration("focusMode");
-      await cfg.update("presets", undefined, vscode.ConfigurationTarget.Workspace);
-      await cfg.update("order", undefined, vscode.ConfigurationTarget.Workspace);
-      await cfg.update("default", undefined, vscode.ConfigurationTarget.Workspace);
-      await cfg.update("extends", undefined, vscode.ConfigurationTarget.Workspace);
-      await deleteRcFile();
-      await clearState(ctx);
-      await ensureBaseline(ctx);
-      const { presets, defaultName } = await loadState();
-      if (presets[defaultName]) await applyPreset(ctx, defaultName, presets);
-      await refresh();
-      vscode.window.showInformationMessage("Focus Mode: presets reset to defaults.");
-    }),
-    vscode.commands.registerCommand("focusMode.initRcFile", async () => {
-      if (!hasWorkspace()) {
-        vscode.window.showWarningMessage("Focus Mode: open a folder first.");
-        return;
-      }
-      if (await hasRcFile()) {
-        const choice = await vscode.window.showWarningMessage(
-          `${RC_FILENAME} already exists. Overwrite with extension defaults?`,
-          { modal: true },
-          "Overwrite",
-        );
-        if (choice !== "Overwrite") return;
-      }
-      const cfg = vscode.workspace.getConfiguration("focusMode");
-      const defaults: RcFile = {
-        presets: cfg.inspect<Record<string, Record<string, boolean>>>("presets")?.defaultValue,
-        order: cfg.inspect<string[]>("order")?.defaultValue,
-        default: cfg.inspect<string>("default")?.defaultValue,
-        extends: cfg.inspect<Record<string, string>>("extends")?.defaultValue,
-      };
-      await writeRcFile(defaults);
-      const folder = vscode.workspace.workspaceFolders?.[0];
-      if (folder) {
-        const uri = vscode.Uri.joinPath(folder.uri, RC_FILENAME);
-        await vscode.window.showTextDocument(uri);
-      }
-      vscode.window.showInformationMessage(`Focus Mode: created ${RC_FILENAME}.`);
-    }),
-    vscode.commands.registerCommand("focusMode.hardReset", async () => {
-      if (!hasWorkspace()) {
-        vscode.window.showWarningMessage("Focus Mode: open a folder first.");
-        return;
-      }
-      const pick = await vscode.window.showWarningMessage(
-        "Focus Mode Hard Reset: this DELETES all of `files.exclude` at workspace scope, removes `focusMode.*` settings, removes the rc file, and clears internal state. Use this if the Explorer is stuck hiding everything.",
-        { modal: true },
-        "Hard Reset",
-      );
-      if (pick !== "Hard Reset") return;
-      const cfg = vscode.workspace.getConfiguration("focusMode");
-      await cfg.update("presets", undefined, vscode.ConfigurationTarget.Workspace);
-      await cfg.update("order", undefined, vscode.ConfigurationTarget.Workspace);
-      await cfg.update("default", undefined, vscode.ConfigurationTarget.Workspace);
-      await cfg.update("extends", undefined, vscode.ConfigurationTarget.Workspace);
-      await deleteRcFile();
-      await hardClearState(ctx);
-      await ensureBaseline(ctx);
-      const { presets, defaultName } = await loadState();
-      if (presets[defaultName]) await applyPreset(ctx, defaultName, presets);
-      await refresh();
-      vscode.window.showInformationMessage("Focus Mode: hard reset done.");
-    }),
-    vscode.commands.registerCommand("focusMode.showState", async () => {
-      const { rc, presets, order, defaultName } = await loadState();
-      const active = getActive(ctx);
-      const baseline = ctx.workspaceState.get<Record<string, boolean>>(BASELINE_KEY);
-      const managed = ctx.workspaceState.get<string[]>(MANAGED_KEY);
-      const filesCfg = vscode.workspace.getConfiguration("files");
-      const excludeInsp = filesCfg.inspect<Record<string, boolean>>("exclude");
-      const info = {
-        workspaceFolders: vscode.workspace.workspaceFolders?.map((f) => f.uri.fsPath),
-        rcFilePresent: rc !== undefined,
-        rcFileContents: rc,
-        active,
-        defaultName,
-        order,
-        presetNames: Object.keys(presets),
-        presetSizes: Object.fromEntries(
-          Object.entries(presets).map(([k, v]) => [k, Object.keys(v).length]),
-        ),
-        workspaceState: {
-          [BASELINE_KEY]: baseline ? Object.keys(baseline).length : null,
-          [ACTIVE_KEY]: active ?? null,
-          [MANAGED_KEY]: managed ? managed.length : null,
-        },
-        filesExclude: {
-          defaultKeys: Object.keys(excludeInsp?.defaultValue ?? {}).length,
-          globalKeys: Object.keys(excludeInsp?.globalValue ?? {}).length,
-          workspaceKeys: Object.keys(excludeInsp?.workspaceValue ?? {}).length,
-          workspaceFolderKeys: Object.keys(excludeInsp?.workspaceFolderValue ?? {}).length,
-        },
-      };
-      const channel = vscode.window.createOutputChannel("Focus Mode");
-      channel.appendLine("=== focusMode.showState ===");
-      channel.appendLine(JSON.stringify(info, null, 2));
-      channel.show(true);
-    }),
-    vscode.commands.registerCommand("focusMode.openSettingsJson", async () => {
-      const folder = vscode.workspace.workspaceFolders?.[0];
-      if (!folder) {
-        vscode.window.showWarningMessage("Focus Mode: open a folder first.");
-        return;
-      }
-      const uri = vscode.Uri.joinPath(folder.uri, ".vscode", "settings.json");
-      try {
-        const doc = await vscode.workspace.openTextDocument(uri);
-        await vscode.window.showTextDocument(doc);
-      } catch {
-        await vscode.commands.executeCommand(
-          "workbench.action.openWorkspaceSettingsFile",
-        );
-      }
-    }),
-    vscode.commands.registerCommand("focusMode.togglePath", async (uri?: vscode.Uri) => {
-      if (!hasWorkspace()) {
-        vscode.window.showWarningMessage("Focus Mode: open a folder first.");
-        return;
-      }
-      if (!uri) {
-        vscode.window.showWarningMessage(
-          "Focus Mode: run this command by right-clicking a file in the Explorer.",
-        );
-        return;
-      }
-      await togglePath(ctx, uri);
-      await refresh();
-    }),
-    vscode.workspace.onDidChangeConfiguration((e) => {
-      if (
-        e.affectsConfiguration("focusMode.presets") ||
-        e.affectsConfiguration("focusMode.order") ||
-        e.affectsConfiguration("focusMode.default") ||
-        e.affectsConfiguration("focusMode.extends")
-      ) {
-        void refresh();
-      }
-    }),
-  );
-
-  if (hasWorkspace()) {
-    const watcher = vscode.workspace.createFileSystemWatcher(`**/${RC_FILENAME}`);
-    const onRcChange = async () => {
-      const { presets } = await loadState();
-      const active = getActive(ctx);
-      if (active && presets[active]) {
-        await applyPreset(ctx, active, presets);
-      }
-      await refresh();
-    };
-    watcher.onDidChange(onRcChange);
-    watcher.onDidCreate(onRcChange);
-    watcher.onDidDelete(onRcChange);
-    ctx.subscriptions.push(watcher);
-  }
-
-  if (hasWorkspace()) {
-    const { presets, defaultName } = await loadState();
-    if (!getActive(ctx)) {
-      if (presets[defaultName]) await applyPreset(ctx, defaultName, presets);
-    }
-  }
-  await refresh();
-
-  ctx.subscriptions.push(
-    vscode.workspace.onDidChangeWorkspaceFolders(() => void refresh()),
-  );
-}
-
-function buildTooltip(order: string[], active: string): string {
-  const lines = order.map((n) => (n === active ? `● ${n}` : `  ${n}`));
-  return `Focus Mode — click to cycle\n${lines.join("\n")}`;
-}
-
-export function deactivate(): void {}
+export function deactivate():void{}
